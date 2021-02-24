@@ -98,6 +98,7 @@ const c = {
         
         }
 
+
         handleConnection(sock) { 
             console.log(sock.remoteAddress);
             sock.on('data', (data) => this.handleRequest(sock, data));
@@ -146,8 +147,8 @@ const c = {
         }
 
         use(cb) {
-
-            this.middleware.call(cb.req, cb.res, cb.next);
+            
+            this.middleware = cb;
 
         }
 
@@ -157,31 +158,29 @@ const c = {
 
         handleRequest(sock, binaryData) {
 
-            const req = new Request(binaryData + '');
+            let req = new Request(binaryData + '');
             let res = new Response(sock);
 
             if (this.middleware !== null) {
-
-                this.middleware.call(req, res, next)
-                
+                this.middleware(req, res, this.processRoutes);
             } else {
-
                 this.processRoutes(req, res);
-                
             }
         }
 
 
         processRoutes(req, res) {
+            
+            const normalizedPath = this.normalizePath(req.path);
+            const routeKey = this.createRouteKey(req.method, normalizedPath);
 
-            if (this.routes.hasOwnProperty(req.path)) {
-                const routeHandler = this.routes[req.path];
-                routeHandler(req, res);
+            if (this.routes.hasOwnProperty(routeKey)) {
+                const functionToCall = this.routes[routeKey];
+                functionToCall(req, res);
             } else {
                 res.status = 404;
                 res.send('<em>Page not found.</em>');
             }
-            sock.end();
         }
     }
 
@@ -249,6 +248,34 @@ const c = {
             return this;
 
         }
+
+        serveStatic(basePath) {
+
+            return function (req, res, next) {
+                
+                const path = require('path');
+                const fs = require('fs');
+                const newPath = path.join(basePath, req.path);
+
+                function handleRead(err, data) {
+                    if(err) {
+                        next(req, res);
+                    } else {
+                        
+
+
+                        res.send(data)
+                    }
+                  
+
+            }
+
+        };
+
+
+
+        }
+    
     }
 
 }
