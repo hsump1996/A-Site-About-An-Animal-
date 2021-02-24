@@ -238,7 +238,8 @@ const c = {
 
             this.sock.write("\r\n");
             this.sock.write(body);
-        
+
+            this.sock.end();
         
         }
 
