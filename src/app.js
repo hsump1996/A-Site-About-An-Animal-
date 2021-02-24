@@ -1,9 +1,9 @@
 // app.js
 
-const App = require('./demo.js');
+const App = require('./webby.js');
 const app = new App();
 
-app.get('/foo', function(req, res) {
+app.get('/gallery', function(req, res) {
   res.send('foo');
 });
 
