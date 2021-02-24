@@ -248,36 +248,38 @@ const c = {
             return this;
 
         }
-
-        serveStatic(basePath) {
-
-            return function (req, res, next) {
-                
-                const path = require('path');
-                const fs = require('fs');
-                const newPath = path.join(basePath, req.path);
-
-                function handleRead(err, data) {
-                    if(err) {
-                        next(req, res);
-                    } else {
-                        
-
-
-                        res.send(data)
-                    }
-                  
-
-            }
-
-        };
-
-
-
-        }
     
     }
 
 }
+function serveStatic(basePath) {
+
+    return function (req, res, next) {
+        
+        const path = require('path');
+        const fs = require('fs');
+        
+        const newPath = path.join(basePath, req.path);
+        function handleRead(err, data) {
+            if(err) {
+                if (err.code === 'ENOENT') {
+                    res.status(404);
+                } else {
+                    res.status(500);
+                }
+                next(req, res);
+            } else {
+                res.status(200);
+                const mimeType = getMIMEType(newPath);
+                res.set('Content-Type', mimeType);
+                res.send(data)
+            }
+        }
+
+        fs.readFile(newPath, handleRead); 
+    }
+}
 
 module.exports = c;
+module.exports.static = serveStatic;
+
