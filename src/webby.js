@@ -80,7 +80,6 @@ class App {
     }
 
     handleConnection = (sock) => { 
-        console.log(sock.remoteAddress);
         sock.on('data', (data) => this.handleRequest(sock, data));
     }
     
@@ -228,29 +227,20 @@ class Response {
 function serveStatic(basePath) {
 
     return function (req, res, next) {
-        if ((req.path.startsWith('/css') && getExtension(req.path) == 'css')  || (req.path.startsWith('/img') && getExtension(req.path) == 'jpg')) {
-            const path = require('path');
-            const fs = require('fs');
-            const newPath = path.join(basePath, req.path);
-
-            const handleRead = (err, data) => {
-                if (err) {
-                    if (err.code === 'ENOENT') {
-                        res.status(404);
-                    } else {
-                        res.status(500);
-                    }
-                    res.send('')
-                } else {
-                    res.status(200);
-                    res.set('Content-Type', getMIMEType(newPath));
-                    res.send(data)
-                }
+        
+        const path = require('path');
+        const fs = require('fs');
+        const fullPath = path.join(basePath, req.path);
+        function handleRead(err, data) {
+            if (err) {
+                next(req, res);
+            } else {
+                res.status(200);
+                res.set('Content-Type', getMIMEType(fullPath));
+                res.send(data)
             }
-            fs.readFile(newPath, handleRead); 
-        } else {
-            next(req, res);
         }
+        fs.readFile(fullPath, handleRead); 
     }
 }
 
