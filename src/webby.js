@@ -6,8 +6,9 @@ const net = require('net');
 const HTTP_STATUS_CODES = {
     200: 'OK',
     404: 'Not Found',
-    500: 'Internal Server Error'
-};
+    500: 'Internal Server Error',
+    308: 'Permanent Redirect'
+}
 
 const MIME_TYPES = {
     jpg: 'image/jpeg',
@@ -16,270 +17,250 @@ const MIME_TYPES = {
     html: 'text/html',
     css: 'text/css',
     txt: 'text/plain'
-};
+}
 
-const c = {
+function getMIMEType(fileName) {
 
+    if (fileName.includes('.')) {
+        const splittedStrings = fileName.split('.');
+        if (splittedStrings[splittedStrings.length-1] == 'jpg'){
 
-    HTTP_STATUS_CODES: {
-        200: 'OK',
-        404: 'NOT FOUND',
-        500: 'SERVER ERROR'
-    },
-    
-    MIME_TYPES: {
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        png: 'image/png',
-        html: 'text/html',
-        css: 'text/css',
-        txt: 'text/plain'
-    },
+            return MIME_TYPES.jpg;
 
+        } else if (splittedStrings[splittedStrings.length-1] == 'jpeg') {
 
-    getExtension: function(fileName) {
+            return MIME_TYPES.jpeg;
 
-        if (fileName.includes('.')) {
-            const splittedStrings = fileName.split('.');
-            return splittedStrings[splittedStrings.length-1].toLowerCase();
-        } else {
-            return '';
-        }
+        } else if (splittedStrings[splittedStrings.length-1] == 'png') {
 
-    }
+            return MIME_TYPES.png;
 
-    ,getMIMEType: function(fileName) {
+        } else if (splittedStrings[splittedStrings.length-1] == 'html') {
 
-        if (fileName.includes('.')) {
-            const splittedStrings = fileName.split('.');
-            if (splittedStrings[splittedStrings.length-1] == 'jpg'){
+            return MIME_TYPES.html;
 
-                return MIME_TYPES.jpg;
+        } else if (splittedStrings[splittedStrings.length-1] == 'css') {
 
-            } else if (splittedStrings[splittedStrings.length-1] == 'jpeg') {
-
-                return MIME_TYPES.jpeg;
-
-            } else if (splittedStrings[splittedStrings.length-1] == 'png') {
-
-                return MIME_TYPES.png;
-
-            } else if (splittedStrings[splittedStrings.length-1] == 'html') {
-
-                return MIME_TYPES.html;
-
-            } else if (splittedStrings[splittedStrings.length-1] == 'css') {
-
-                return MIME_TYPES.css;
-            
-            } else if (splittedStrings[splittedStrings.length-1] == 'txt') {
-
-                return MIME_TYPES.txt;
-            }
-        } else {
-            return '';
-        }
-    }
-
-    ,Request: class{
-        constructor(s) {
-            const [method, path, ...others] = s.split(' ');
-            this.method = method;
-            this.path = path;
-        }
-    }
-
-
-    ,App: class{
-        constructor() {
-          this.routes = {}; 
-          this.server = net.createServer(this.handleConnection.bind(this)) 
-          this.middleware = null;
+            return MIME_TYPES.css;
         
+        } else if (splittedStrings[splittedStrings.length-1] == 'txt') {
+
+            return MIME_TYPES.txt;
         }
-
-
-        handleConnection(sock) { 
-            console.log(sock.remoteAddress);
-            sock.on('data', (data) => this.handleRequest(sock, data));
-        }
-        
-        normalizePath(path) {
-            
-            let tempResult;
-            let result = '';
-            let count = 0;
-
-            for (let i = 0; i < path.length; i++) {
-                if (path.charAt(i) == '/') {
-                    tempResult = result;
-                    if (i == path.length-1) {
-                        break;
-                    } else {
-                        result += path.charAt(i);
-                        count++;
-                    }
-                } else if (path.charCodeAt(i) >= 65 && path.charCodeAt(i) <= 90) {
-                    result += path.charAt(i);
-                } else if (path.charCodeAt(i) >= 97 && path.charCodeAt(i) <= 122)
-                    result += path.charAt(i);
-                else {
-                    break;
-                }                
-            }
-            if (count > 1) {
-                return tempResult;
-            } else {
-                return result.toLowerCase();
-            }
-        }
-
-        createRouteKey(method, path) {
-
-            return method.toUpperCase() + " " + this.normalizePath(path)
-
-        }
-
-        get(path, cb) {
-
-            this.routes[this.createRouteKey('GET', path)] = cb;
-
-        }
-
-        use(cb) {
-            
-            this.middleware = cb;
-
-        }
-
-        listen(port, host) {
-            this.server.listen(port, host);
-        }
-
-        handleRequest(sock, binaryData) {
-
-            let req = new Request(binaryData + '');
-            let res = new Response(sock);
-
-            if (this.middleware !== null) {
-                this.middleware(req, res, this.processRoutes);
-            } else {
-                this.processRoutes(req, res);
-            }
-        }
-
-
-        processRoutes(req, res) {
-            
-            const normalizedPath = this.normalizePath(req.path);
-            const routeKey = this.createRouteKey(req.method, normalizedPath);
-
-            if (this.routes.hasOwnProperty(routeKey)) {
-                const functionToCall = this.routes[routeKey];
-                functionToCall(req, res);
-            } else {
-                res.status = 404;
-                res.send('<em>Page not found.</em>');
-            }
-        }
+    } else {
+        return '';
     }
+}
 
-    ,Response: class{
-        constructor(sock, statusCode = 200, version = 'HTTP/1.1') {
-            this.statusCode = statusCode;
-            this.version = version;
-            this.sock = sock;
-            this.headers = {};
-            this.body = {};
-        }
+function getExtension(fileName) {
 
-        set(name, value) {
-            this.headers[name] = value;
-        }
-        
-        end(){
-            
-            this.sock.end();
-
-        }
-
-        statusLineToString() {
-
-            if (this.statusCode == 200) {
-                return this.version + " " + this.statusCode + " " + HTTP_STATUS_CODES[200] + "\r\n"
-            } else if (this.statusCode == 404) {
-                return this.version + " " + this.statusCode + " " + HTTP_STATUS_CODES[404] + "\r\n"
-            } else if (this.statusCode == 500) {
-                return this.version + " " + this.statusCode + " " + HTTP_STATUS_CODES[500] + "\r\n"
-            }
-
-        }
-
-        headersToString() {
-
-            let result = '';
-            
-            for (const [key, value] of Object.entries(this.headers)) {
-                result += `${key}: ${value}\r\n`;
-            }
-
-            return result;
-
-        }
-
-        send(body) {
-
-            if (this.headers == null) {
-                this.headers['Content-Type'] = 'text/html'
-            }
-            this.sock.write(this.statusLineToString());
-            this.sock.write(this.headers);
-
-            this.sock.write("\r\n");
-            this.sock.write(body);
-
-            this.sock.end();
-        
-        }
-
-        status(statusCode){
-
-            this.statusCode = statusCode;
-            return this;
-
-        }
-    
+    if (fileName.includes('.')) {
+        const splittedStrings = fileName.split('.');
+        return splittedStrings[splittedStrings.length-1].toLowerCase();
+    } else {
+        return '';
     }
 
 }
+
+class Request {
+    constructor(s) {
+        const [method, path, ...others] = s.split(' ');
+        this.method = method;
+        this.path = path;
+    }
+}
+
+class App {
+    constructor() {
+      this.routes = {}; 
+      this.server = net.createServer(this.handleConnection.bind(this)) 
+      this.middleware = null;
+    
+    }
+
+    handleConnection = (sock) => { 
+        console.log(sock.remoteAddress);
+        sock.on('data', (data) => this.handleRequest(sock, data));
+    }
+    
+    normalizePath = (path) => {
+        
+        let tempResult;
+        let result = '';
+        let count = 0;
+
+        for (let i = 0; i < path.length; i++) {
+            if (path.charAt(i) == '/') {
+                tempResult = result;
+                if (i == path.length-1) {
+                    break;
+                } else {
+                    result += path.charAt(i);
+                    count++;
+                }
+            } else if (path.charCodeAt(i) >= 65 && path.charCodeAt(i) <= 90) {
+                result += path.charAt(i);
+            } else if (path.charCodeAt(i) >= 97 && path.charCodeAt(i) <= 122)
+                result += path.charAt(i);
+            else {
+                break;
+            }                
+        }
+        if (count > 1) {
+            return tempResult;
+        } else {
+            return result.toLowerCase();
+        }
+    }
+
+    createRouteKey = (method, path) => {
+
+        return method.toUpperCase() + " " + this.normalizePath(path)
+
+    }
+
+    get = (path, cb) => {
+
+        this.routes[this.createRouteKey('GET', path)] = cb;
+
+    }
+
+    use = (cb) => {
+        
+        this.middleware = cb;
+
+    }
+
+    listen = (port, host) => {
+        this.server.listen(port, host);
+    }
+
+    handleRequest = (sock, binaryData) => {
+
+        let req = new Request(binaryData + '');
+        let res = new Response(sock);
+
+        if (this.middleware !== null) {
+            this.middleware(req, res, this.processRoutes);
+        } else {
+            this.processRoutes(req, res);
+        }
+    }
+
+    processRoutes = (req, res) => {
+        
+        const normalizedPath = this.normalizePath(req.path);
+        const routeKey = this.createRouteKey(req.method, normalizedPath);
+
+        if (this.routes.hasOwnProperty(routeKey)) {
+            const functionToCall = this.routes[routeKey];
+            functionToCall(req, res);
+        } else {
+            res.status = 404;
+            res.send('<em>Page not found.</em>');
+        }
+    }
+}
+
+class Response {
+    constructor(sock, statusCode = 200, version = 'HTTP/1.1') {
+        this.statusCode = statusCode;
+        this.version = version;
+        this.sock = sock;
+        this.headers = {};
+        this.body = {};
+    }
+
+    set(name, value) {
+        this.headers[name] = value;
+    }
+    
+    end(){
+        
+        this.sock.end();
+
+    }
+
+    statusLineToString() {
+
+        return this.version + " " + this.statusCode + " " + HTTP_STATUS_CODES[this.statusCode] + "\r\n"
+
+    }
+
+    headersToString() {
+
+        let result = '';
+        
+        for (const [key, value] of Object.entries(this.headers)) {
+            result += `${key}: ${value}\r\n`;
+        }
+
+        return result;
+
+    }
+
+    send(body) {
+
+        if (this.headers == null) {
+            this.headers['Content-Type'] = 'text/html'
+        }
+        this.sock.write(this.statusLineToString());
+        this.sock.write(this.headersToString());
+
+        this.sock.write("\r\n");
+        this.sock.write(body);
+
+        this.sock.end();
+    
+    }
+
+    status(statusCode){
+
+        this.statusCode = statusCode;
+        return this;
+
+    }
+
+}
+
+
 function serveStatic(basePath) {
 
     return function (req, res, next) {
-        
-        const path = require('path');
-        const fs = require('fs');
-        
-        const newPath = path.join(basePath, req.path);
-        function handleRead(err, data) {
-            if(err) {
-                if (err.code === 'ENOENT') {
-                    res.status(404);
-                } else {
-                    res.status(500);
-                }
-                next(req, res);
-            } else {
-                res.status(200);
-                const mimeType = getMIMEType(newPath);
-                res.set('Content-Type', mimeType);
-                res.send(data)
-            }
-        }
+        if ((req.path.startsWith('/css') && getExtension(req.path) == 'css')  || (req.path.startsWith('/img') && getExtension(req.path) == 'jpg')) {
+            const path = require('path');
+            const fs = require('fs');
+            const newPath = path.join(basePath, req.path);
 
-        fs.readFile(newPath, handleRead); 
+            const handleRead = (err, data) => {
+                if (err) {
+                    if (err.code === 'ENOENT') {
+                        res.status(404);
+                    } else {
+                        res.status(500);
+                    }
+                    res.send('')
+                } else {
+                    res.status(200);
+                    res.set('Content-Type', getMIMEType(newPath));
+                    res.send(data)
+                }
+            }
+            fs.readFile(newPath, handleRead); 
+        } else {
+            next(req, res);
+        }
     }
 }
 
-module.exports = c;
-module.exports.static = serveStatic;
-
+module.exports = {
+    HTTP_STATUS_CODES,
+    MIME_TYPES,
+    Response,
+    Request,
+    App,
+    getExtension,
+    getMIMEType,
+    static: serveStatic
+};
